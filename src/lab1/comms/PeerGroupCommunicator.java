@@ -1,13 +1,64 @@
 package lab1.comms;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.util.Set;
+
 import lab1.commcmds.ICommunicationCommand;
+import lab1.commcmds.StartReceivingCmd;
+import lab1.core.UDPMsgReceivedCommand;
 
 public class PeerGroupCommunicator extends Communicator {
+	
+	// Peer2Peer
+	private boolean isReceiving = false;
+	private Set<Peer> peergroup;
+	
+	// UDP
+	private DatagramSocket senderSocket;
+	private DatagramSocket receiverSocket;
 
 	@Override
 	public void processCommCmd(ICommunicationCommand cmd) {
-		// TODO Auto-generated method stub
+		if(cmd instanceof StartReceivingCmd c) {
+			System.out.println("StartReceivingCmd");
+			onStartReceivingCmd(c);
+		}
+		else {
+			System.out.println("Unknown ICommunication command");
+		}
+	}
+	
+	private void processReceivedMsg(String msg) {
 		
+	}
+	
+	// ------------------------ Callbacks ------------------------------------------
+	
+	private void onStartReceivingCmd(StartReceivingCmd cmd) {
+		if(isReceiving) return;
+		isReceiving = true;
+		
+		new Thread(() -> {
+			byte[] buffer = new byte[4096];
+			
+			try {
+				receiverSocket = new DatagramSocket(cmd.port());
+
+				// Infite Loop to receive msgs via UDP
+				while (true) {
+					var packet = new DatagramPacket(buffer, buffer.length);
+					receiverSocket.receive(packet);
+					
+					String msg = new String(packet.getData(), 0, packet.getLength());					
+					processReceivedMsg(msg);
+				}
+			} 
+			catch (Exception e) {
+				e.printStackTrace();
+				if(receiverSocket != null) receiverSocket.close();
+			} 
+		}).start();
 	}
 
 }
