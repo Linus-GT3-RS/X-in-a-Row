@@ -24,35 +24,6 @@ public class UDPCommunicator {
 		try { this.publisherSocket = new DatagramSocket(); } 
 		catch (SocketException e) { e.printStackTrace(); }
 	}
-
-//	public void startReceiving(int listenerPort, GameLogic gamelogic) {
-//		if(isReceiving) return;
-//		isReceiving = true;
-//		
-//		new Thread(() -> {	
-//			DatagramSocket socket = null;
-//			byte[] buffer = new byte[4096];
-//			try {
-//				socket = new DatagramSocket(listenerPort);
-//
-//				while (true) {
-//					var packet = new DatagramPacket(buffer, buffer.length);
-//					socket.receive(packet);
-//					String msg = new String(packet.getData(), 0, packet.getLength());					
-//					gamelogic.processGameCommand(new UDPMsgReceivedCommand(msg));
-//				}
-//			} 
-//			catch (Exception e) {
-//				e.printStackTrace();
-//				if(socket != null) socket.close();
-//			} 
-//		}).start();
-//	}
-
-	// Has to be called before each sendMsg()
-	public void setReceivers(List<Peer> friends) {
-		this.friends = friends;
-	}
 	
 	public void sendMsg(String msg) {
 		byte[] data = msg.getBytes();

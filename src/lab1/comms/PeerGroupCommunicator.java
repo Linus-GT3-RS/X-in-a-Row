@@ -4,16 +4,18 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.util.Set;
 
+import org.json.JSONObject;
+
 import lab1.commcmds.ICommunicationCommand;
 import lab1.commcmds.StartReceivingCmd;
 import lab1.core.UDPMsgReceivedCommand;
 
 public class PeerGroupCommunicator extends Communicator {
-	
+
 	// Peer2Peer
 	private boolean isReceiving = false;
 	private Set<Peer> peergroup;
-	
+
 	// UDP
 	private DatagramSocket senderSocket;
 	private DatagramSocket receiverSocket;
@@ -28,20 +30,53 @@ public class PeerGroupCommunicator extends Communicator {
 			System.out.println("Unknown ICommunication command");
 		}
 	}
-	
+
 	private void processReceivedMsg(String msg) {
+		var msgtype = JSONCommHandler.getMessageType(msg);
+		var dataJSON = JSONCommHandler.getDataJSON(msg);
+
+		switch (msgtype) {
+		case GETPEERS -> onGetPeersMsg(dataJSON);
+		case PEERLIST -> onPeerListMsg(dataJSON);
+		case JOINPEERGROUP -> onJoinPeerGroupMsg(dataJSON);
+		case LEAVEPEERGROUP -> onLeavePeerGroupMsg(dataJSON);
 		
+		case JOINREQUEST -> onJoinRequestMsg(dataJSON);
+		case GAMESTATE -> onGameStateMsg(dataJSON);
+		
+		case UNKNOWN -> System.out.println("Unknown msgtype received, msg is:\n" + msg);
+		}
 	}
+
+	// ------------------------ Callbacks Received Msg ------------------------------------------
 	
-	// ------------------------ Callbacks ------------------------------------------
-	
+	private void onGetPeersMsg(JSONObject dataJSON) {
+    }
+
+    private void onPeerListMsg(JSONObject dataJSON) {
+    }
+
+    private void onJoinPeerGroupMsg(JSONObject dataJSON) {
+    }
+
+    private void onLeavePeerGroupMsg(JSONObject dataJSON) {
+    }
+
+    private void onJoinRequestMsg(JSONObject dataJSON) {
+    }
+
+    private void onGameStateMsg(JSONObject dataJSON) {
+    }
+
+	// ------------------------ Callbacks Commands ------------------------------------------
+
 	private void onStartReceivingCmd(StartReceivingCmd cmd) {
 		if(isReceiving) return;
 		isReceiving = true;
-		
+
 		new Thread(() -> {
 			byte[] buffer = new byte[4096];
-			
+
 			try {
 				receiverSocket = new DatagramSocket(cmd.port());
 
@@ -49,7 +84,7 @@ public class PeerGroupCommunicator extends Communicator {
 				while (true) {
 					var packet = new DatagramPacket(buffer, buffer.length);
 					receiverSocket.receive(packet);
-					
+
 					String msg = new String(packet.getData(), 0, packet.getLength());					
 					processReceivedMsg(msg);
 				}
@@ -60,5 +95,7 @@ public class PeerGroupCommunicator extends Communicator {
 			} 
 		}).start();
 	}
+
+	
 
 }

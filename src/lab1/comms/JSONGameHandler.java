@@ -11,16 +11,16 @@ import lab1.game.Player;
 
 public class JSONGameHandler {
 	
-	public static UDPMsgType getUDPMsgType(String msg) {
-		var json = new JSONObject(msg);
-		String msgtype = json.getString("msgtype");
-		if(msgtype.equals("gamestate")) {
-			return UDPMsgType.GAMESTATE;
-		} else if(msgtype.equals("joinrequest")) {
-			return UDPMsgType.JOINREQUEST;
-		}
-		return null;
-	}
+//	public static UDPMsgType getUDPMsgType(String msg) {
+//		var json = new JSONObject(msg);
+//		String msgtype = json.getString("msgtype");
+//		if(msgtype.equals("gamestate")) {
+//			return UDPMsgType.GAMESTATE;
+//		} else if(msgtype.equals("joinrequest")) {
+//			return UDPMsgType.JOINREQUEST;
+//		}
+//		return null;
+//	}
 	
 	public static String getUsername(String msg) {
 		return new JSONObject(msg).getJSONObject("data").getString("username");
