@@ -58,7 +58,7 @@ public class PeerGroupCommunicator extends Communicator {
 		});
 	}
 
-	// ---------------- NAME --------------------------
+	// ---------------- Process-Functions --------------------------
 	
 	@Override
 	public void processCommCmd(ICommunicationCommand cmd) {
@@ -71,13 +71,13 @@ public class PeerGroupCommunicator extends Communicator {
 		}
 	}
 
-	private void processReceivedMsg(String msg) {
+	private void processReceivedMsg(String msg, Peer sender) {
 		MsgType msgtype = JSONCommHandler.getMessageType(msg);
 		JSONObject dataJSON = JSONCommHandler.getData(msg);
 
 		switch (msgtype) {
 		case GETPEERS -> onGetPeersMsg(dataJSON);
-		case PEERLIST -> onPeerListMsg(dataJSON);
+		case PEERLIST -> onPeerListMsg(dataJSON, sender);
 		case JOINPEERGROUP -> onJoinPeerGroupMsg(dataJSON);
 		case LEAVEPEERGROUP -> onLeavePeerGroupMsg(dataJSON);
 		
@@ -90,23 +90,33 @@ public class PeerGroupCommunicator extends Communicator {
 
 	// ------------------------ Callbacks Received Msg ------------------------------------------
 	
-	private void onGetPeersMsg(JSONObject dataJSON) {
+	private void onGetPeersMsg(JSONObject receiveddata) {
+		Peer receiver = JSONCommHandler.getPeer(receiveddata);
 		String reply = JSONCommHandler.toMsg(MsgType.PEERLIST, JSONCommHandler.peers2JSON(peergroup));
+		sendMsgP2P(reply, receiver);
     }
 
-    private void onPeerListMsg(JSONObject dataJSON) {
+    private void onPeerListMsg(JSONObject receiveddata, Peer sender) {
+    	this.peergroup = JSONCommHandler.getPeers(receiveddata);
+    	this.peergroup.add(sender);
     }
 
-    private void onJoinPeerGroupMsg(JSONObject dataJSON) {
+    private void onJoinPeerGroupMsg(JSONObject receiveddata) {
+    	Peer newMember = JSONCommHandler.getPeer(receiveddata);
+    	peergroup.add(newMember);
     }
 
-    private void onLeavePeerGroupMsg(JSONObject dataJSON) {
+    private void onLeavePeerGroupMsg(JSONObject receiveddata) {
+    	Peer leavingMember = JSONCommHandler.getPeer(receiveddata);
+    	peergroup.remove(leavingMember);
     }
 
-    private void onJoinRequestMsg(JSONObject dataJSON) {
+    private void onJoinRequestMsg(JSONObject receiveddata) {
+    	// TODO
     }
 
-    private void onGameStateMsg(JSONObject dataJSON) {
+    private void onGameStateMsg(JSONObject receiveddata) {
+    	// TODO
     }
 
 	// ------------------------ Callbacks Commands ------------------------------------------
@@ -126,8 +136,9 @@ public class PeerGroupCommunicator extends Communicator {
 					var packet = new DatagramPacket(buffer, buffer.length);
 					receiverSocket.receive(packet);
 
-					String msg = new String(packet.getData(), 0, packet.getLength());					
-					processReceivedMsg(msg);
+					String msg = new String(packet.getData(), 0, packet.getLength());	
+					var sender = new Peer(packet.getAddress().getHostAddress(), packet.getPort());
+					processReceivedMsg(msg, sender);
 				}
 			} 
 			catch (Exception e) {
