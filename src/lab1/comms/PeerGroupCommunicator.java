@@ -1,7 +1,11 @@
 package lab1.comms;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.json.JSONObject;
@@ -19,7 +23,43 @@ public class PeerGroupCommunicator extends Communicator {
 	// UDP
 	private DatagramSocket senderSocket;
 	private DatagramSocket receiverSocket;
+	
+	public PeerGroupCommunicator() {
+		peergroup = new HashSet<Peer>();
+		try { this.senderSocket = new DatagramSocket(); } 
+		catch (SocketException e) { e.printStackTrace(); }
+	}
+	
+	// ------------- Send Messages ------------------------
+	
+	public void sendMsgP2P(String msg, Peer receiver) {
+		System.out.println("Sending Point2Point msg using UDP");
+		
+		byte[] data = msg.getBytes();
+		try {
+			var packet = new DatagramPacket(data, data.length, receiver.getInetAddr(), receiver.port());
+			senderSocket.send(packet);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void sendMsgToGroup(String msg) {
+		System.out.println("Sending group-msg using UDP");
+		
+		byte[] data = msg.getBytes();
+		peergroup.forEach(p -> {
+			try {
+				var packet = new DatagramPacket(data, data.length, p.getInetAddr(), p.port());
+				senderSocket.send(packet);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		});
+	}
 
+	// ---------------- NAME --------------------------
+	
 	@Override
 	public void processCommCmd(ICommunicationCommand cmd) {
 		if(cmd instanceof StartReceivingCmd c) {
@@ -51,6 +91,7 @@ public class PeerGroupCommunicator extends Communicator {
 	// ------------------------ Callbacks Received Msg ------------------------------------------
 	
 	private void onGetPeersMsg(JSONObject dataJSON) {
+		String reply = JSONCommHandler.toMsg(MsgType.PEERLIST, JSONCommHandler.peers2JSON(peergroup));
     }
 
     private void onPeerListMsg(JSONObject dataJSON) {
