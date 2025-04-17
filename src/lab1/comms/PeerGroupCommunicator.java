@@ -32,8 +32,8 @@ public class PeerGroupCommunicator extends Communicator {
 	}
 
 	private void processReceivedMsg(String msg) {
-		var msgtype = JSONCommHandler.getMessageType(msg);
-		var dataJSON = JSONCommHandler.getDataJSON(msg);
+		MsgType msgtype = JSONCommHandler.getMessageType(msg);
+		JSONObject dataJSON = JSONCommHandler.getData(msg);
 
 		switch (msgtype) {
 		case GETPEERS -> onGetPeersMsg(dataJSON);
@@ -44,7 +44,7 @@ public class PeerGroupCommunicator extends Communicator {
 		case JOINREQUEST -> onJoinRequestMsg(dataJSON);
 		case GAMESTATE -> onGameStateMsg(dataJSON);
 		
-		case UNKNOWN -> System.out.println("Unknown msgtype received, msg is:\n" + msg);
+		default -> System.out.println("Unknown msgtype received, msg is:\n" + msg);
 		}
 	}
 
