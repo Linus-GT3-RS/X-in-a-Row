@@ -13,9 +13,15 @@ import java.util.Set;
 
 import org.json.JSONObject;
 
+import lab1.Utils;
 import lab1.commcmds.ICommunicationCommand;
+import lab1.commcmds.SendGamestateCmd;
+import lab1.commcmds.SendJoinGameRequestCmd;
 import lab1.commcmds.SendJoinPeerGroupRequestCmd;
 import lab1.commcmds.SendLeaveGameCmd;
+import lab1.commevents.JoinRequestReceivedEvent;
+import lab1.commevents.PeerGroupJoinedEvent;
+import lab1.commevents.PeerGroupLeftEvent;
 import lab1.core.UDPMsgReceivedCommand;
 
 public class PeerGroupCommunicator extends Communicator {
@@ -36,7 +42,8 @@ public class PeerGroupCommunicator extends Communicator {
 	}
 	
 	private Peer getMyself() {
-		String myIP = getLocalNonLoopbackIPv4().getHostAddress();
+//		String myIP = getLocalNonLoopbackIPv4().getHostAddress();
+		String myIP = getPublicIPv4(); // TODO
 		return new Peer(myIP, sendRecieveSocket.getLocalPort());
 	}
 	
@@ -62,6 +69,69 @@ public class PeerGroupCommunicator extends Communicator {
 			e.printStackTrace();
 		}
 		return null;        
+    }
+    
+    public static String getPublicIPv4() {
+        Enumeration<NetworkInterface> interfaces;
+		try {
+			interfaces = NetworkInterface.getNetworkInterfaces();
+			while (interfaces.hasMoreElements()) {
+	            NetworkInterface iface = interfaces.nextElement();
+	            if (iface.isUp() && !iface.isLoopback()) {
+	                var addrs = iface.getInetAddresses();
+	                while (addrs.hasMoreElements()) {
+	                    InetAddress addr = addrs.nextElement();
+	                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+	                        String ip = addr.getHostAddress();
+
+	                        // Filter raus, was privat ist:
+	                        if (!ip.startsWith("10.") &&
+	                            !ip.startsWith("192.168.") &&
+	                            !ip.startsWith("172.16.") &&
+	                            !ip.startsWith("172.17.") &&
+	                            !ip.startsWith("172.18.") &&
+	                            !ip.startsWith("172.19.") &&
+	                            !ip.startsWith("172.2") && // covers 172.20–172.31
+	                            !ip.startsWith("127.") &&
+	                            !ip.startsWith("169.254")) {
+
+	                            return ip; // Treffer!
+	                        }
+	                    }
+	                }
+	            }
+	        }
+		} catch (SocketException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        
+        return null;
+    }
+
+    
+    public static String getMyVPNAddress() {
+        Enumeration<NetworkInterface> interfaces;
+		try {
+			interfaces = NetworkInterface.getNetworkInterfaces();
+			while (interfaces.hasMoreElements()) {
+	            NetworkInterface iface = interfaces.nextElement();
+	            if (iface.isUp() && !iface.isLoopback()) {
+	                var addrs = iface.getInetAddresses();
+	                while (addrs.hasMoreElements()) {
+	                    InetAddress addr = addrs.nextElement();
+	                    String ip = addr.getHostAddress();
+	                    if (ip.startsWith("100.") || ip.startsWith("10.")) { // VPN-typisch
+	                        return ip;
+	                    }
+	                }
+	            }
+	        }
+		} catch (SocketException e) {
+			e.printStackTrace();
+		}
+        
+        return null;
     }
 
 	// ------------- Send Messages ------------------------
@@ -97,16 +167,35 @@ public class PeerGroupCommunicator extends Communicator {
 	@Override
 	public void processCommCmd(ICommunicationCommand cmd) {
 		if(cmd instanceof SendJoinPeerGroupRequestCmd c) {
-			System.out.println(c.getClass().getSimpleName());
+			Utils.logClass(c);
 			onSendJoinPeerGroupRequestCmd(c);
 		}
 		else if(cmd instanceof SendLeaveGameCmd c) {
-			System.out.println(c.getClass().getSimpleName());
-			onSendLeaveGameCmd(c);
+			Utils.logClass(c);
+			onSendLeaveGameCmd(c); // TODO name anpassen?
+		}
+		else if(cmd instanceof SendJoinGameRequestCmd c) {
+			Utils.logClass(c);
+			onSendJoinGameRequestCmd(c);
+		}
+		else if(cmd instanceof SendGamestateCmd c) {
+			Utils.logClass(c);
+			onSendGamestateCmd(c);
 		}
 		else {
 			System.out.println("Unknown ICommunication command");
 		}
+	}
+
+	private void onSendGamestateCmd(SendGamestateCmd c) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private void onSendJoinGameRequestCmd(SendJoinGameRequestCmd c) {
+		var data = JSONCommHandler.name2JSON(c.username());
+		String msg = JSONCommHandler.toMsg(MsgType.JOINREQUEST, data);
+		sendMsgP2P(msg, peergroup.iterator().next());
 	}
 
 	private void processReceivedMsg(String msg, Peer sender) {
@@ -129,7 +218,7 @@ public class PeerGroupCommunicator extends Communicator {
 	// ------------------------ Callbacks Received Msg ------------------------------------------
 
 	private void onGetPeersMsg(JSONObject receiveddata) {
-		logFunc();
+		Utils.logFunc();
 		
 		Peer receiver = JSONCommHandler.getPeer(receiveddata);
 		String reply = JSONCommHandler.toMsg(MsgType.PEERLIST, JSONCommHandler.peers2JSON(peergroup));
@@ -137,36 +226,41 @@ public class PeerGroupCommunicator extends Communicator {
 	}
 
 	private void onPeerListMsg(JSONObject receiveddata, Peer sender) {
-		logFunc();
+		Utils.logFunc();
 		
 		this.peergroup = JSONCommHandler.getPeers(receiveddata);
 		this.peergroup.add(sender);
 		
 		String msg = JSONCommHandler.toMsg(MsgType.JOINPEERGROUP, JSONCommHandler.peer2JSON(getMyself()));
 		sendMsgToGroup(msg);
+		
+		delayThread(10);
+		sendCommEvent(new PeerGroupJoinedEvent());
 	}
 
 	private void onJoinPeerGroupMsg(JSONObject receiveddata) {
-		logFunc();
+		Utils.logFunc();
 		
 		Peer newMember = JSONCommHandler.getPeer(receiveddata);
 		peergroup.add(newMember);
 	}
 
 	private void onLeavePeerGroupMsg(JSONObject receiveddata) {
-		logFunc();
+		Utils.logFunc();
 		
 		Peer leavingMember = JSONCommHandler.getPeer(receiveddata);
 		peergroup.remove(leavingMember);
 	}
 
 	private void onJoinRequestMsg(JSONObject receiveddata) {
-		logFunc();
-		// TODO
+		Utils.logFunc();
+		
+		var username = JSONCommHandler.getUsername(receiveddata);
+		sendCommEvent(new JoinRequestReceivedEvent(username));
 	}
 
 	private void onGameStateMsg(JSONObject receiveddata) {
-		logFunc();
+		Utils.logFunc();
 		// TODO
 	}
 
@@ -175,7 +269,7 @@ public class PeerGroupCommunicator extends Communicator {
 	private void startReceiverThread() {
 		if(isReceiving) return;
 		isReceiving = true;
-		System.out.println("Starting ReceiverThread");
+		Utils.logFunc("on " + getMyself());
 
 		new Thread(() -> {
 			byte[] buffer = new byte[4096];
@@ -196,19 +290,17 @@ public class PeerGroupCommunicator extends Communicator {
 				if(sendRecieveSocket != null) sendRecieveSocket.close();
 			} 
 		}).start();
-
-		// delay so that receiver thread can set up
-		try {
-			Thread.sleep(10);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+ 
+		delayThread(10); // so that receiver thread can set up
 	}
 
 	private void onSendLeaveGameCmd(SendLeaveGameCmd c) {
 		String msg = JSONCommHandler.toMsg(MsgType.LEAVEPEERGROUP, JSONCommHandler.peer2JSON(getMyself()));
 		sendMsgToGroup(msg);
+		
+		delayThread(10);
 		this.peergroup = new HashSet<Peer>(); // create empty
+		sendCommEvent(new PeerGroupLeftEvent());
 	}
 
 	private void onSendJoinPeerGroupRequestCmd(SendJoinPeerGroupRequestCmd c) {;
@@ -218,10 +310,12 @@ public class PeerGroupCommunicator extends Communicator {
 
 	// ------------------------ Utility Functions------------------------------------------
 	
-	// Prints name of caller func
-	private void logFunc() {
-		String methodName = Thread.currentThread().getStackTrace()[2].getMethodName();
-	    System.out.println(methodName);
+	private void delayThread(int ms) {
+		try {
+			Thread.sleep(ms);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 
 }
