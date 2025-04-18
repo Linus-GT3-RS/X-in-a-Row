@@ -38,6 +38,10 @@ public class JSONCommHandler {
 		
 		return peers;		
 	}
+	
+	public static String getUsername(JSONObject data) {
+		return data.getString("username");
+	}
 
 	// -------------- Into JSON ------------------------------------
 
@@ -60,6 +64,12 @@ public class JSONCommHandler {
 		var jsonarray = new JSONArray();		
 		peers.forEach(p -> jsonarray.put(peer2JSON(p)));		
 		json.put("peers", jsonarray);
+		return json;
+	}
+	
+	public static JSONObject name2JSON(String username) {
+		var json = new JSONObject();
+		json.put("username", username);
 		return json;
 	}
 
