@@ -14,7 +14,7 @@ import java.util.Set;
 import org.json.JSONObject;
 
 import lab1.commcmds.ICommunicationCommand;
-import lab1.commcmds.SendJoinGameRequestCmd;
+import lab1.commcmds.SendJoinPeerGroupRequestCmd;
 import lab1.commcmds.SendLeaveGameCmd;
 import lab1.core.UDPMsgReceivedCommand;
 
@@ -96,12 +96,12 @@ public class PeerGroupCommunicator extends Communicator {
 
 	@Override
 	public void processCommCmd(ICommunicationCommand cmd) {
-		if(cmd instanceof SendJoinGameRequestCmd c) {
-			System.out.println("SendJoinGameRequestCmd");
-			onSendJoinGameRequestCmd(c);
+		if(cmd instanceof SendJoinPeerGroupRequestCmd c) {
+			System.out.println(c.getClass().getSimpleName());
+			onSendJoinPeerGroupRequestCmd(c);
 		}
 		else if(cmd instanceof SendLeaveGameCmd c) {
-			System.out.println("SendLeaveGameCmd");
+			System.out.println(c.getClass().getSimpleName());
 			onSendLeaveGameCmd(c);
 		}
 		else {
@@ -129,7 +129,7 @@ public class PeerGroupCommunicator extends Communicator {
 	// ------------------------ Callbacks Received Msg ------------------------------------------
 
 	private void onGetPeersMsg(JSONObject receiveddata) {
-		System.out.println("onGetPeersMsg");
+		logFunc();
 		
 		Peer receiver = JSONCommHandler.getPeer(receiveddata);
 		String reply = JSONCommHandler.toMsg(MsgType.PEERLIST, JSONCommHandler.peers2JSON(peergroup));
@@ -137,7 +137,7 @@ public class PeerGroupCommunicator extends Communicator {
 	}
 
 	private void onPeerListMsg(JSONObject receiveddata, Peer sender) {
-		System.out.println("onPeerListMsg");
+		logFunc();
 		
 		this.peergroup = JSONCommHandler.getPeers(receiveddata);
 		this.peergroup.add(sender);
@@ -147,26 +147,26 @@ public class PeerGroupCommunicator extends Communicator {
 	}
 
 	private void onJoinPeerGroupMsg(JSONObject receiveddata) {
-		System.out.println("onJoinPeerGroupMsg");
+		logFunc();
 		
 		Peer newMember = JSONCommHandler.getPeer(receiveddata);
 		peergroup.add(newMember);
 	}
 
 	private void onLeavePeerGroupMsg(JSONObject receiveddata) {
-		System.out.println("onLeavePeerGroupMsg");
+		logFunc();
 		
 		Peer leavingMember = JSONCommHandler.getPeer(receiveddata);
 		peergroup.remove(leavingMember);
 	}
 
 	private void onJoinRequestMsg(JSONObject receiveddata) {
-		System.out.println("onJoinRequestMsg");
+		logFunc();
 		// TODO
 	}
 
 	private void onGameStateMsg(JSONObject receiveddata) {
-		System.out.println("onGameStateMsg");
+		logFunc();
 		// TODO
 	}
 
@@ -211,11 +211,17 @@ public class PeerGroupCommunicator extends Communicator {
 		this.peergroup = new HashSet<Peer>(); // create empty
 	}
 
-	private void onSendJoinGameRequestCmd(SendJoinGameRequestCmd c) {;
+	private void onSendJoinPeerGroupRequestCmd(SendJoinPeerGroupRequestCmd c) {;
 		String msg = JSONCommHandler.toMsg(MsgType.GETPEERS, JSONCommHandler.peer2JSON(getMyself()));
 		sendMsgP2P(msg, c.friend());
 	}
 
-
+	// ------------------------ Utility Functions------------------------------------------
+	
+	// Prints name of caller func
+	private void logFunc() {
+		String methodName = Thread.currentThread().getStackTrace()[2].getMethodName();
+	    System.out.println(methodName);
+	}
 
 }
