@@ -1,4 +1,11 @@
 package lab1.gamecmds;
 
-public record JoinGameCommand(int friendID, String playerName) implements IGameCommand {
+import lab1.comms.Peer;
+
+public record JoinGameCommand
+		(
+		Peer friend, 
+		String playerName
+		) 
+		implements IGameCommand {
 }

@@ -2,6 +2,8 @@ package lab1.comms;
 
 import java.util.HashSet;
 import java.util.Set;
+
+import lab1.Utils;
 import lab1.commcmds.ICommunicationCommand;
 import lab1.commevents.ICommunicationEvent;
 
@@ -15,6 +17,7 @@ public abstract class Communicator {
 	
 	public void addCommEventListener(ICommunicationEventListener listener) {
 		commEventListeners.add(listener);
+		Utils.log("Added new CommEvent listener");
 	}
 	
 	protected void sendCommEvent(ICommunicationEvent ev) {

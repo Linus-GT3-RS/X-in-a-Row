@@ -8,30 +8,34 @@ import java.util.List;
 import java.util.Map;
 
 import lab1.Utils;
+import lab1.commcmds.SendGamestateCmd;
 import lab1.commcmds.SendJoinGameRequestCmd;
+import lab1.commcmds.SendJoinPeerGroupRequestCmd;
+import lab1.commcmds.SendLeaveGameCommand;
+import lab1.commcmds.StartReceivingCommand;
+import lab1.commcmds.StopReceivingCommand;
+import lab1.commevents.GamestateReceivedEvent;
 import lab1.commevents.ICommunicationEvent;
 import lab1.commevents.JoinRequestReceivedEvent;
+import lab1.commevents.LeaveGameMsgReceivedEvent;
 import lab1.commevents.PeerGroupJoinedEvent;
 import lab1.commevents.PeerGroupLeftEvent;
 import lab1.comms.Communicator;
 import lab1.comms.ICommunicationEventListener;
-import lab1.comms.JSONGameHandler;
 import lab1.comms.PeerGroupCommunicator;
 import lab1.game.Cell;
 import lab1.game.GameField;
 import lab1.game.Player;
 import lab1.gamecmds.CreateGameCommand;
-import lab1.gamecmds.CreatePlayerCommand;
 import lab1.gamecmds.JoinGameCommand;
-import lab1.gamecmds.ResetGridCommand;
+import lab1.gamecmds.LeaveGameCommand;
 import lab1.gamecmds.SelectCellCommand;
 import lab1.gameevents.CellSelectedEvent;
 import lab1.gameevents.CellsClearedEvent;
-import lab1.gameevents.GameCreatedEvent;
-import lab1.gameevents.GameFieldChangedEvent;
-import lab1.gameevents.GameJoinedEvent;
+import lab1.gameevents.GameInitializedEvent;
+import lab1.gameevents.GamestateUpdatedEvent;
 import lab1.gameevents.IGameEvent;
-import lab1.gameevents.PlayerPointsChangedEvent;
+import lab1.gameevents.PlayersPointsChangedEvent;
 
 enum Direction {
 	LEFT(0, -1), UP_LEFT(-1, -1), UP(-1, 0), UP_RIGHT(-1, 1),
@@ -58,33 +62,45 @@ public class GameLogic implements ICommunicationEventListener {
 	
 	public static int X_NEEDED_IN_ROW = 4;
 
-	private int playerUIPort;
+//	private int playerUIPort;
 	
 //	private UDPCommunicator communicator;
 	private Communicator comm;
+	
+	private JoinGameCommand lastJoinGameCmd;
 
 	private boolean isGameRunning;
 
 	private int cellsNeededInRow;
 
-	private Map<Integer, Player> players = new LinkedHashMap<>(); // playerID -> player
+//	private Map<Integer, Player> players = new LinkedHashMap<>(); // playerID -> player
+	private List<Player> allplayers;
+	private int myPlayerID; // = index in list of allplayers
 
 	private GameField field;
 
 	private List<IGameEventListener> gameEventListeners;
 
-	public GameLogic(int playerUIPort) {
+	public GameLogic(int listenerPort) {
 		this.gameEventListeners = new ArrayList<>();
 		this.isGameRunning = false;
-		this.playerUIPort = playerUIPort;
 		
-		this.comm = new PeerGroupCommunicator(1); // TODO port anpassen TODO direkt im konstruktor erstellen? oder später erst
+		// create communicator
+		// -> starts autom listening on given port
+		this.comm = new PeerGroupCommunicator(listenerPort);
+		comm.addCommEventListener(this);
+	}
+	
+	private Player getMyself() {
+		return allplayers.get(myPlayerID);
 	}
 
-	// TODO: algo noch net ganz vollständig: wenn es 4 in einer reihe sind, aber man placed nicht am rand, gibt er bisher noch keinen punkt
 	// checks if player scored a point and returns List of cells which earned said point
 	// 		- starter cell serves as info for which player to check for
 	public List<Cell> isPointScored(int r, int c, boolean recursion, int dirx, int diry) {
+		// TODO: algo noch net ganz vollständig: 
+		// wenn es 4 in einer reihe sind, aber man placed nicht am rand, gibt er bisher noch keinen punkt
+		
 		Direction[] directions = Direction.values();		
 		int targetCell = field.getCell(r - dirx, c - diry);;	// found cells have to match this one
 
@@ -110,10 +126,6 @@ public class GameLogic implements ICommunicationEventListener {
 		
 		return null;
 	}
-	
-	private void startPlayerConsoleThread() { // TODO wid
-		// replaced by PlayerConsole in UI -> separates LogInfos from PlayerInput
-	}
 
 	//	------------------------- Events -------------------------
 
@@ -121,7 +133,7 @@ public class GameLogic implements ICommunicationEventListener {
 		gameEventListeners.add(listener);
 	}
 
-	private void sendEvent(IGameEvent event) {
+	private void sendGameEvent(IGameEvent event) {
 		gameEventListeners.forEach((listener) -> listener.onGameEvent(event));
 	}
 	
@@ -133,141 +145,124 @@ public class GameLogic implements ICommunicationEventListener {
 			Utils.logClass(ev);
 			onPeerGroupJoinedEvent(ev);
 		}
-		else if(event instanceof PeerGroupLeftEvent ev) {
+		else if(event instanceof GamestateReceivedEvent ev) {
 			Utils.logClass(ev);
-			onPeerGroupLeftEvent(ev);
+			onGamestateReceivedEvent(ev);
 		}
 		else if(event instanceof JoinRequestReceivedEvent ev) {
 			Utils.logClass(ev);
 			onJoinRequestReceivedEvent(ev);
+		}
+		else if(event instanceof LeaveGameMsgReceivedEvent ev) {
+			Utils.logClass(ev);
+			onLeaveGameMsgReceivedEvent(ev);
 		}
 		else {
 			Utils.log("Unknow ICommunicationEvent");
 		}
 	}
 
-	private void onJoinRequestReceivedEvent(JoinRequestReceivedEvent ev) {
-		// TODO Auto-generated method stub
+	// BAD BAD BAD but has to exist because of compatibility with eduards code :((
+	// gets id of removed player and adjusts id in field of all players > id
+	private void onLeaveGameMsgReceivedEvent(LeaveGameMsgReceivedEvent ev) {
+		int indexOfPlayerLeaving = 0;
+		for(Player p : allplayers) {
+			if(p.getName().equals(ev.username())) break;
+			indexOfPlayerLeaving++;
+		}
 		
+		allplayers.remove(indexOfPlayerLeaving);
+		if(myPlayerID > indexOfPlayerLeaving) myPlayerID--;
+		field.removePlayer(indexOfPlayerLeaving);
+		field.adjustCellsBy1(indexOfPlayerLeaving);		
+		
+		sendGameEvent(new GamestateUpdatedEvent(field, allplayers));
 	}
 
-	private void onPeerGroupLeftEvent(PeerGroupLeftEvent ev) {
-		// TODO Auto-generated method stub
-		
+	private void onPeerGroupJoinedEvent(PeerGroupJoinedEvent ev) {
+		comm.processCommCmd(new SendJoinGameRequestCmd(lastJoinGameCmd.playerName()));
 	}
+	
+	private void onGamestateReceivedEvent(GamestateReceivedEvent ev) {
+		field = ev.field();
+		allplayers = ev.players();
+		
+		 if(!isGameRunning) { // means that player received first data of joined game
+			Utils.log("Succesfully joined Game");
+			isGameRunning = true;
+			
+			cellsNeededInRow = X_NEEDED_IN_ROW;
+			myPlayerID = allplayers.size() - 1;
+			
+			sendGameEvent(new GameInitializedEvent(field.getRowNumb(), field.getColNumb()));
+		}	
+		 
+		sendGameEvent(new GamestateUpdatedEvent(field, allplayers));
+	}
+	
+	private void onJoinRequestReceivedEvent(JoinRequestReceivedEvent ev) {
+		allplayers.add(new Player(ev.username()));
+		
+		sendGameEvent(new PlayersPointsChangedEvent(allplayers));
+		
+		comm.processCommCmd(new SendGamestateCmd(field, allplayers));		
+	}
+	
 
 	// ------------------------- Commands -------------------------
 
-	private void onPeerGroupJoinedEvent(PeerGroupJoinedEvent ev) {
-		comm.processCommCmd(new SendJoinGameRequestCmd("")); // TODO playername
-	}
-
 	public void processGameCommand(CreateGameCommand cmd) {
-		System.out.println("CreateGameCmd");
+		Utils.logClass(cmd);
 
 		if(isGameRunning) return;
 		isGameRunning = true;
 
 		field = new GameField(cmd.rows(), cmd.cols());
-		cellsNeededInRow = cmd.cellsNeededInRow();
-
-		sendEvent(new GameCreatedEvent(cmd.rows(), cmd.cols()));
-
-//		communicator.startReceiving(playerUIPort, this);
+		cellsNeededInRow = X_NEEDED_IN_ROW; // cmd.cellsNeededInRow();
+		allplayers = new ArrayList<Player>();
+		allplayers.add(cmd.player());
+		myPlayerID = 0;
 		
-		startPlayerConsoleThread();
+		sendGameEvent(new GameInitializedEvent(field.getRowNumb(), field.getColNumb()));
+		sendGameEvent(new GamestateUpdatedEvent(field, allplayers));
+		
+		comm.processCommCmd(new StartReceivingCommand());
 	}
 
 	public void processGameCommand(JoinGameCommand cmd) {
-		System.out.println("JoinGameCmd");
+		Utils.logClass(cmd);
 
-		String msg = JSONGameHandler.toJoinrequestMsg(cmd.playerName());
-//		communicator.setReceivers(PeerFactory.joinLocal(cmd.friendID()));
-//		communicator.sendMsg(msg);
-
-//		communicator.startReceiving(playerUIPort, this);
+		lastJoinGameCmd = cmd;
+		comm.processCommCmd(new StartReceivingCommand());
+		comm.processCommCmd(new SendJoinPeerGroupRequestCmd(cmd.friend()));
 	}
-
-	public void processGameCommand(UDPMsgReceivedCommand cmd) {
-		System.out.print("UDPMsgReceivedCommand: ");
-		
-		System.out.println(cmd.msg());
-//
-//		UDPMsgType msgtype = JSONGameHandler.getUDPMsgType(cmd.msg());
-//		switch(msgtype) {
-//		case GAMESTATE -> {
-//			System.out.println("GameState");
-//			
-//			this.field = new GameField(JSONGameHandler.getGameField(cmd.msg()));
-//			this.players = JSONGameHandler.getPlayers(cmd.msg());
-//
-//			if(!isGameRunning) { // means that player just now joined the game
-//				isGameRunning = true;
-//				cellsNeededInRow = X_NEEDED_IN_ROW;
-//				sendEvent(new GameJoinedEvent(field.getRowNumb(), field.getColNumb()));
-//				startPlayerConsoleThread();
-//			}
-//			
-//			sendEvent(new PlayerPointsChangedEvent(new ArrayList<Player>(players.values()))); // update players in gui first
-//			sendEvent(new GameFieldChangedEvent(field));
-//		}
-//		case JOINREQUEST -> {
-//			System.out.println("JoinRequest");
-//			
-//			// delay so that player that requests to join has time to start listening to msgs and doesnt miss first msg
-//			try { Thread.sleep(10); } catch (InterruptedException e) { e.printStackTrace();}
-//			
-//			int newPlayerID = Collections.max(players.keySet()) + 1;
-//			var newPlayer = new Player(newPlayerID + PeerFactory.START_PORT, 
-//					JSONGameHandler.getUsername(cmd.msg()));
-//			players.put(newPlayerID, newPlayer);
-//
-//			var list = new ArrayList<Player>();
-//			list.add(newPlayer);
-//			sendEvent(new PlayerPointsChangedEvent(list));
-//			
-//			String msg = JSONGameHandler.toGameStateMsg(field, players);
-//			communicator.setReceivers(PeerFactory.friendsLocal(players, playerUIPort));	// TODO unschön -> constructor von UDP this übergeben und dann holt der es sich?
-//			communicator.sendMsg(msg);
-//		}
-//		}
-	}
-
+	
 	public void processGameCommand(SelectCellCommand cmd) {
-		System.out.println("SelectCellCmd");
+		Utils.logClass(cmd);
 
-		Player p = cmd.playerGUI();
-		boolean selectSucceeded = field.setCell(cmd.r(), cmd.c(), p.getID());
+		boolean selectSucceeded = field.setCell(cmd.r(), cmd.c(), myPlayerID);
 		if(!selectSucceeded) return;
 
-		sendEvent(new CellSelectedEvent(cmd.r(), cmd.c(), p.getColor()));
+		sendGameEvent(new CellSelectedEvent(cmd.r(), cmd.c(), getMyself().getColor()));
 
 		List<Cell> cellsInRow = isPointScored(cmd.r(), cmd.c(), true, 0, 0);
 		if(cellsInRow != null) {			
 			field.resetCells(cellsInRow);
-			sendEvent(new CellsClearedEvent(cellsInRow));
+			getMyself().incrPoints();
 
-			players.put(p.getID(), p.incrPoints());
-			var list = new ArrayList<Player>();
-			list.add(p);
-			sendEvent(new PlayerPointsChangedEvent(list));
+			sendGameEvent(new CellsClearedEvent(cellsInRow));
+			sendGameEvent(new PlayersPointsChangedEvent(allplayers));
 		}
 
-		// Send gamestate per UDP
-		String msg = JSONGameHandler.toGameStateMsg(field, players);		
-//		communicator.setReceivers(PeerFactory.friendsLocal(players, playerUIPort));	// TODO unschön -> constructor von UDP this übergeben und dann holt der es sich?
-//		communicator.sendMsg(msg);
-	}
-
-	public void processGameCommand(CreatePlayerCommand cmd) {
-		System.out.println("CreatePlayerCommand");
-
-		Player p = cmd.p();
-		players.put(p.getID(), p);
-	}
-
-	public void processGameCommand(ResetGridCommand cmd) {
-		System.out.println("Inactive ResetGridCommand");
+		comm.processCommCmd(new SendGamestateCmd(field, allplayers));
 	}
 	
+	public void processGameCommand(LeaveGameCommand cmd) {
+		Utils.logClass(cmd);
+		
+		isGameRunning = false;
+		
+		comm.processCommCmd(new StopReceivingCommand());
+		comm.processCommCmd(new SendLeaveGameCommand(getMyself().getName()));
+	}
 }

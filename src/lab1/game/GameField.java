@@ -6,9 +6,9 @@ import java.util.List;
 
 public class GameField {
 
-	private int[][] field;
-
 	public static final int EMPTY_FIELD = -1;
+
+	private int[][] field;
 
 	public GameField(int rows, int cols) {
 		field = new int[rows][cols];
@@ -40,6 +40,28 @@ public class GameField {
 	
 	public void resetCells(List<Cell> cells) {
 		cells.forEach((Cell c) -> field[c.r()][c.c()] = EMPTY_FIELD);
+	}
+	
+	// BAD BAD BAD but has to exist because of compatibility with eduards code :((
+	// gets id of removed player and adjusts id in field of all players > id
+	public void adjustCellsBy1(int idRemovedPlayer) {
+		for(int i = 0; i < getRowNumb(); i++) {
+			for(int j = 0; j < getColNumb(); j++) {
+				if(field[i][j] > idRemovedPlayer) {
+					field[i][j] = field[i][j] - 1;
+				}
+			}
+		}
+	}
+	
+	public void removePlayer(int id) {
+		for(int i = 0; i < getRowNumb(); i++) {
+			for(int j = 0; j < getColNumb(); j++) {
+				if(field[i][j] == id) {
+					field[i][j] = EMPTY_FIELD;
+				}
+			}
+		}
 	}
 	
 	public int getRowNumb() {

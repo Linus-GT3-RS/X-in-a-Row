@@ -1,14 +1,14 @@
-package lab1.commcmds;
+package lab1.commevents;
 
 import java.util.List;
 
 import lab1.game.GameField;
 import lab1.game.Player;
 
-public record SendGamestateCmd(
+public record GamestateReceivedEvent(
 		GameField field,
 		List<Player> players
-		)
-implements ICommunicationCommand {
+		) 
+implements ICommunicationEvent{
 
 }

@@ -27,12 +27,11 @@ public class Main {
 		while(playerport < START_PORT);		
 		
 		final int listenerPort = playerport;
-		var player = new Player(playername);
 		
 		// ----------------- Start GUI -----------------
 		
 		System.out.println("Starting ...");
-		SwingUtilities.invokeLater(() -> new GameGUI_2DSwing(player, listenerPort));
+		SwingUtilities.invokeLater(() -> new GameGUI_2DSwing(playername, listenerPort));
 		
 		scanner.close();
 	}
