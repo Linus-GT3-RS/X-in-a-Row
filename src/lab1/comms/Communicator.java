@@ -3,9 +3,9 @@ package lab1.comms;
 import java.util.HashSet;
 import java.util.Set;
 
-import lab1.Utils;
-import lab1.commcmds.ICommunicationCommand;
-import lab1.commevents.ICommunicationEvent;
+import lab1.cmds_comms.ICommunicationCommand;
+import lab1.events_comms.ICommunicationEvent;
+import lab1.game.Utils;
 
 public abstract class Communicator {
 

@@ -13,20 +13,19 @@ import java.util.Set;
 
 import org.json.JSONObject;
 
-import lab1.Utils;
-import lab1.commcmds.ICommunicationCommand;
-import lab1.commcmds.SendGamestateCmd;
-import lab1.commcmds.SendJoinGameRequestCmd;
-import lab1.commcmds.SendJoinPeerGroupRequestCmd;
-import lab1.commcmds.SendLeaveGameCommand;
-import lab1.commcmds.StartReceivingCommand;
-import lab1.commcmds.StopReceivingCommand;
-import lab1.commevents.GamestateReceivedEvent;
-import lab1.commevents.JoinRequestReceivedEvent;
-import lab1.commevents.LeaveGameMsgReceivedEvent;
-import lab1.commevents.PeerGroupJoinedEvent;
-import lab1.commevents.PeerGroupLeftEvent;
-import lab1.core.UDPMsgReceivedCommand;
+import lab1.cmds_comms.ICommunicationCommand;
+import lab1.cmds_comms.SendGamestateCmd;
+import lab1.cmds_comms.SendJoinGameRequestCmd;
+import lab1.cmds_comms.SendJoinPeerGroupRequestCmd;
+import lab1.cmds_comms.SendLeaveGameCommand;
+import lab1.cmds_comms.StartReceivingCommand;
+import lab1.cmds_comms.StopReceivingCommand;
+import lab1.events_comms.GamestateReceivedEvent;
+import lab1.events_comms.JoinRequestReceivedEvent;
+import lab1.events_comms.LeaveGameMsgReceivedEvent;
+import lab1.events_comms.PeerGroupJoinedEvent;
+import lab1.events_comms.PeerGroupLeftEvent;
+import lab1.game.Utils;
 
 public class PeerGroupCommunicator extends Communicator {
 
@@ -45,95 +44,9 @@ public class PeerGroupCommunicator extends Communicator {
 	}
 
 	private Peer getMyself() {
-		String myIP = getLocalNonLoopbackIPv4().getHostAddress();
-		//		String myIP = getPublicIPv4(); // TODO
-		return new Peer(myIP, sendRecieveSocket.getLocalPort());
+		return new Peer(Utils.getIP(), sendRecieveSocket.getLocalPort());
 	}
-
-	// Gibt die erste nicht-loopback IPv4-Adresse zurück
-	private static InetAddress getLocalNonLoopbackIPv4() {
-		Enumeration<NetworkInterface> interfaces;
-		try {
-			interfaces = NetworkInterface.getNetworkInterfaces();
-			while (interfaces.hasMoreElements()) {
-				NetworkInterface ni = interfaces.nextElement();
-				if (!ni.isUp() || ni.isLoopback()) continue;
-
-				Enumeration<InetAddress> addresses = ni.getInetAddresses();
-				while (addresses.hasMoreElements()) {
-					InetAddress addr = addresses.nextElement();
-					if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
-						return addr;
-					}
-				}
-			}
-
-		} catch (SocketException e) {
-			e.printStackTrace();
-		}
-		return null;        
-	}
-
-	public static String getPublicIPv4() {
-		Enumeration<NetworkInterface> interfaces;
-		try {
-			interfaces = NetworkInterface.getNetworkInterfaces();
-			while (interfaces.hasMoreElements()) {
-				NetworkInterface iface = interfaces.nextElement();
-				if (iface.isUp() && !iface.isLoopback()) {
-					var addrs = iface.getInetAddresses();
-					while (addrs.hasMoreElements()) {
-						InetAddress addr = addrs.nextElement();
-						if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
-							String ip = addr.getHostAddress();
-
-							// Filter raus, was privat ist:
-							if (!ip.startsWith("10.") &&
-									!ip.startsWith("192.168.") &&
-									!ip.startsWith("172.16.") &&
-									!ip.startsWith("172.17.") &&
-									!ip.startsWith("172.18.") &&
-									!ip.startsWith("172.19.") &&
-									!ip.startsWith("172.2") && // covers 172.20–172.31
-									!ip.startsWith("127.") &&
-									!ip.startsWith("169.254")) {
-
-								return ip; // Treffer!
-							}
-						}
-					}
-				}
-			}
-		} catch (SocketException e) {
-			e.printStackTrace();
-		}
-
-		return null;
-	}
-
-	public static String getMyVPNAddress() {
-		Enumeration<NetworkInterface> interfaces;
-		try {
-			interfaces = NetworkInterface.getNetworkInterfaces();
-			while (interfaces.hasMoreElements()) {
-				NetworkInterface iface = interfaces.nextElement();
-				if (iface.isUp() && !iface.isLoopback()) {
-					var addrs = iface.getInetAddresses();
-					while (addrs.hasMoreElements()) {
-						InetAddress addr = addrs.nextElement();
-						String ip = addr.getHostAddress();
-						if (ip.startsWith("100.") || ip.startsWith("10.")) { // VPN-typisch
-							return ip;
-						}
-					}
-				}
-			}
-		} catch (SocketException e) {
-			e.printStackTrace();
-		}
-
-		return null;
-	}
+	
 
 	// ------------- Send Messages ------------------------
 

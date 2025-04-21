@@ -3,8 +3,9 @@ package lab1;
 import java.util.Scanner;
 
 import javax.swing.SwingUtilities;
-import lab1.core.GameGUI_2DSwing;
+
 import lab1.game.Player;
+import lab1.gui.GameGUI_2DSwing;
 
 public class Main {
 	
