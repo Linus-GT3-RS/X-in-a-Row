@@ -15,6 +15,4 @@ A Java project developed in Eclipse, where players compete against each other an
 
 
 ---------------------------------------------------------------------------------------------------------------------------------
-[Video Preview of the Desktop Application]()
-
-![Image Preview of the Desktop Application]()
+[Video Preview of the Desktop Application](https://www.youtube.com/watch?v=gZG_oTLYtME)
